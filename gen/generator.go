@@ -172,6 +172,7 @@ type YamlConfigAttribute struct {
 	Type      string `yaml:"type"`
 	// "empty", "presence" or "boolean"
 	TypeYangBool       string                `yaml:"type_yang_bool"`
+	Self               bool                  `yaml:"self"`
 	Id                 bool                  `yaml:"id"`
 	Reference          bool                  `yaml:"reference"`
 	Mandatory          bool                  `yaml:"mandatory"`
@@ -390,6 +391,66 @@ func XPathAttributes(attributes []YamlConfigAttribute) []YamlConfigAttribute {
 		}
 	}
 	return filtered
+}
+
+// selfXPath is the marker XPath given to attributes with 'self: true'. It is never appended to a
+// path (see XPathSuffix); it only keeps the attribute in the templates that filter on a non-empty XPath.
+const selfXPath = "."
+
+// XPathSuffix returns the part of an attribute's XPath to append to the resource XPath, including the
+// leading slash. A 'self' attribute lives on the resource path itself, so its suffix is empty.
+func XPathSuffix(attribute YamlConfigAttribute) string {
+	if attribute.Self {
+		return ""
+	}
+	return "/" + attribute.XPath
+}
+
+// DeletePathSuffix is XPathSuffix for the path removed when the attribute is deleted.
+func DeletePathSuffix(attribute YamlConfigAttribute) string {
+	if attribute.Self {
+		return ""
+	}
+	return "/" + GetDeletePath(attribute)
+}
+
+// normalizeSelfAttributes validates the 'self' attributes of a definition and gives them the marker
+// XPath. A self attribute is a boolean standing for the existence of the resource's own presence
+// container, for containers that have no leaf of their own to carry the value (e.g. 'iox').
+func normalizeSelfAttributes(config *YamlConfig) {
+	for i := range config.Attributes {
+		attr := &config.Attributes[i]
+		for _, child := range attr.Attributes {
+			if hasSelfAttribute(child) {
+				log.Fatalf("%q: 'self' is only supported on top-level attributes, found it below %q", config.Name, attr.TfName)
+			}
+		}
+		if !attr.Self {
+			continue
+		}
+		if attr.TfName == "" || attr.Type != "Bool" || attr.TypeYangBool != "presence" {
+			log.Fatalf("%q: attribute with 'self' requires 'tf_name', 'type: Bool' and 'type_yang_bool: presence'", config.Name)
+		}
+		if attr.YangName != "" || attr.XPath != "" {
+			log.Fatalf("%q: attribute %q with 'self' must not set 'yang_name' or 'xpath'", config.Name, attr.TfName)
+		}
+		if attr.Id || attr.Reference || attr.WriteOnly {
+			log.Fatalf("%q: attribute %q with 'self' cannot be combined with 'id', 'reference' or 'write_only'", config.Name, attr.TfName)
+		}
+		attr.XPath = selfXPath
+	}
+}
+
+func hasSelfAttribute(attr YamlConfigAttribute) bool {
+	if attr.Self {
+		return true
+	}
+	for _, child := range attr.Attributes {
+		if hasSelfAttribute(child) {
+			return true
+		}
+	}
+	return false
 }
 
 func ToRestconfPath(path string) string {
@@ -650,6 +711,8 @@ var functions = template.FuncMap{
 	"getDeletePath":            GetDeletePath,
 	"reverseAttributes":        ReverseAttributes,
 	"xpathAttributes":          XPathAttributes,
+	"xpathSuffix":              XPathSuffix,
+	"deletePathSuffix":         DeletePathSuffix,
 	"toRestconfPath":           ToRestconfPath,
 	"toDotPath":                ToDotPath,
 	"bulkParentXPath":          BulkParentXPath,
@@ -1071,6 +1134,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("Error parsing %q: %v", path, err)
 		}
+		normalizeSelfAttributes(&config)
 		configs = append(configs, config)
 	}
 
