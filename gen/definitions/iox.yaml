@@ -1,0 +1,11 @@
+---
+name: IOx
+path: /Cisco-IOS-XE-native:native/iox
+doc_category: System
+attributes:
+  - tf_name: enable
+    type: Bool
+    type_yang_bool: presence
+    self: true
+    description: Enable IOx services
+    example: true

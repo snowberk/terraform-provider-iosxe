@@ -61,6 +61,8 @@
 - Add `re_originate_route_type5` attribute to `profiles` list in `iosxe_evpn` resource and data source for L2VPN EVPN profile `re-originate route-type5` configuration
 - Add `stub_connected` and `stub_summary` attributes to `iosxe_eigrp` and `iosxe_eigrp_vrf` resources and data sources for EIGRP stub routing advertisement control (`eigrp stub connected summary`)
 - Fix BGP resources triggering spurious destroy-recreate on import when the device uses `bgp asnotation dot` (asdot ASN format). A new `normalize_asn` plan modifier normalizes asdot and asplain representations to the same value before comparison
+- Add `iosxe_iox` resource and data source to manage the IOx (`iox`) presence container, with an `enable` attribute
+- Add `self` attribute option to the resource definition schema (`gen/schema/schema.yaml`) for a boolean that represents the existence of the resource's own presence container, for containers that have no leaf to carry the value
 
 ## 1.1.1
 
