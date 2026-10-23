@@ -2,6 +2,7 @@
 name: IOx
 path: /Cisco-IOS-XE-native:native/iox
 doc_category: System
+test_tags: [IOX]
 attributes:
   - tf_name: enable
     type: Bool
